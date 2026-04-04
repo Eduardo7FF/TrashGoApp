@@ -4,9 +4,10 @@ export const COLORS = {
   primaryLight: '#34D399',
   primaryDark: '#059669',
   
-  // Fondos con gradiente
-  backgroundStart: '#E0F2F1', // Verde muy claro
-  backgroundEnd: '#B2DFDB',   // Verde agua
+  // Fondos
+  background: '#F9FAFB',          // ← AGREGADO (lo que faltaba)
+  backgroundStart: '#E0F2F1',     // Verde muy claro
+  backgroundEnd: '#B2DFDB',       // Verde agua
   
   // Cards y superficies
   surface: '#FFFFFF',
@@ -66,11 +67,3 @@ export const SHADOWS = {
     elevation: 4,
   },
 };
-
-
-
-
-
-
-
-
