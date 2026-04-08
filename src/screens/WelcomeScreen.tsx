@@ -55,7 +55,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      
+
       {/* BLOB ARRIBA */}
       <View style={styles.blobTop}>
         <Svg width={width} height={140} viewBox={`0 0 ${width} 140`}>
@@ -66,7 +66,6 @@ export default function WelcomeScreen() {
               <Stop offset="1" stopColor="#10B981" />
             </LinearGradient>
           </Defs>
-
           <Path
             d={`M0,0 L${width},0 L${width},90 
             Q${width * 0.82},140 ${width * 0.6},100 
@@ -87,7 +86,6 @@ export default function WelcomeScreen() {
               <Stop offset="1" stopColor="#FFB347" />
             </LinearGradient>
           </Defs>
-
           <Path
             d={`M0,140 L${width},140 L${width},50 
             Q${width * 0.78},0 ${width * 0.55},55 
@@ -108,6 +106,7 @@ export default function WelcomeScreen() {
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
+          <Text style={styles.bienvenido}>¡Bienvenido a</Text>
           <Text style={styles.title}>TrashGo</Text>
 
           <Text style={styles.subtitle}>
@@ -135,25 +134,11 @@ export default function WelcomeScreen() {
                     <Stop offset="1" stopColor="#FF5722" />
                   </LinearGradient>
                 </Defs>
-
-                <Rect
-                  x="0"
-                  y="0"
-                  width={BTN_W}
-                  height={BTN_H}
-                  rx={BTN_R}
-                  fill="url(#pill)"
-                />
+                <Rect x="0" y="0" width={BTN_W} height={BTN_H} rx={BTN_R} fill="url(#pill)" />
               </Svg>
 
               <Svg width={28} height={28} viewBox="0 0 28 28">
-                <G
-                  stroke="#FFFFFF"
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                >
+                <G stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none">
                   <Path d="M6 14 L22 14" />
                   <Path d="M15 7 L22 14 L15 21" />
                 </G>
@@ -169,9 +154,51 @@ export default function WelcomeScreen() {
             <Text style={styles.loginText}>Iniciar sesión</Text>
           </TouchableOpacity>
 
-          <Text style={styles.hint}>
-            Conductor o Administrador
-          </Text>
+          {/* ROLES */}
+          <View style={styles.rolesRow}>
+
+            {/* Conductor */}
+            <View style={styles.rolItem}>
+              <View style={styles.rolIconCircle}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <G stroke="#FF5722" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M1 3h15v13H1z" />
+                    <Path d="M16 8h4l3 3v5h-7V8z" />
+                    <Path d="M5.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+                    <Path d="M18.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+                  </G>
+                </Svg>
+              </View>
+              <Text style={styles.rolLabel}>Conductor</Text>
+            </View>
+
+            {/* Administrador */}
+            <View style={styles.rolItem}>
+              <View style={styles.rolIconCircle}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <G stroke="#10B981" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                    <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </G>
+                </Svg>
+              </View>
+              <Text style={styles.rolLabel}>Administrador</Text>
+            </View>
+
+            {/* Ciudadano */}
+            <View style={styles.rolItem}>
+              <View style={styles.rolIconCircle}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <G stroke="#FFD93D" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <Path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                  </G>
+                </Svg>
+              </View>
+              <Text style={styles.rolLabel}>Ciudadano</Text>
+            </View>
+
+          </View>
 
         </Animated.View>
       </ScrollView>
@@ -184,26 +211,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-
   blobTop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
   },
-
   blobBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
   },
-
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
   },
-
   content: {
     flex: 1,
     justifyContent: 'center',
@@ -211,7 +234,12 @@ const styles = StyleSheet.create({
     paddingTop: 150,
     paddingBottom: 150,
   },
-
+  bienvenido: {
+    fontSize: 15,
+    fontFamily: 'Nunito_400Regular',
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
   title: {
     fontSize: 52,
     fontFamily: 'Nunito_700Bold',
@@ -219,27 +247,23 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: -1.5,
   },
-
   subtitle: {
     fontSize: 15,
     fontFamily: 'Nunito_400Regular',
     color: '#9CA3AF',
     marginBottom: 40,
   },
-
   signInRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 32,
   },
-
   signInLabel: {
     fontSize: 28,
     fontFamily: 'Nunito_700Bold',
     color: '#1F2937',
   },
-
   pillBtn: {
     width: BTN_W,
     height: BTN_H,
@@ -248,23 +272,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
-
   loginButton: {
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 16,
   },
-
   loginText: {
     fontSize: 16,
     fontFamily: 'Nunito_700Bold',
     color: '#1F2937',
     textDecorationLine: 'underline',
   },
-
-  hint: {
-    textAlign: 'center',
-    fontSize: 13,
+  rolesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  rolItem: {
+    alignItems: 'center',
+  },
+  rolIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F9F9F9',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  rolLabel: {
+    fontSize: 11,
     color: '#9CA3AF',
     fontFamily: 'Nunito_400Regular',
   },
