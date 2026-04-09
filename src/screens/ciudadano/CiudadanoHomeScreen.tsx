@@ -1,14 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../../constants/theme';
+import { useNavigation } from '@react-navigation/native';
 
 export default function CiudadanoHomeScreen() {
+  const navigation = useNavigation<any>();
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.role}>Rutas activas</Text>
         <Text style={styles.name}>Mapa en construcción</Text>
       </View>
+
+      <TouchableOpacity
+        style={styles.boton}
+        onPress={() => navigation.navigate('Profile')}
+      >
+        <Text style={styles.botonTexto}>Ver mi perfil</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -41,5 +51,17 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     color: COLORS.textSecondary,
+  },
+  boton: {
+    marginTop: 24,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+  },
+  botonTexto: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
