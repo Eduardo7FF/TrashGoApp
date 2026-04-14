@@ -1,310 +1,336 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Dimensions,
   Animated,
-  ScrollView,
-} from 'react-native';
+  TouchableOpacity,
+} from "react-native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
+import Svg, { Path } from "react-native-svg";
 
-import Svg, { Path, Defs, LinearGradient, Stop, Rect, G } from 'react-native-svg';
+const { width } = Dimensions.get("window");
 
-import {
-  useFonts,
-  Nunito_400Regular,
-  Nunito_700Bold,
-} from '@expo-google-fonts/nunito';
-
-import { useNavigation } from '@react-navigation/native';
-
-const { width } = Dimensions.get('window');
-
-const BTN_W = 90;
-const BTN_H = 42;
-const BTN_R = 21;
+const data = [
+  {
+    id: "1",
+    type: "earth",
+    title: "Bienvenido a TrashGo",
+    desc: "Una forma inteligente de gestionar residuos urbanos.",
+    roles: true,
+  },
+  {
+    id: "2",
+    type: "recycle",
+    title: "Seguimiento en tiempo real",
+    desc: "Visualiza rutas activas y ubicación del camión.",
+  },
+  {
+    id: "3",
+    type: "bag",
+    title: "Optimización del servicio",
+    desc: "Mejora la recolección y reduce impacto ambiental.",
+  },
+];
 
 export default function WelcomeScreen() {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<any>(null);
+  const currentIndex = useRef(0);
+  const intervalRef = useRef<any>(null);
 
-  const [fontsLoaded] = useFonts({
-    Nunito_400Regular,
-    Nunito_700Bold,
-  });
-
+  // 🔥 AUTO SWIPE LOOP
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    intervalRef.current = setInterval(() => {
+      goNext();
+    }, 6000);
+
+    return () => clearInterval(intervalRef.current);
   }, []);
 
-  if (!fontsLoaded) return null;
+  // 🔥 RESET REAL (ESTO ES EL FIX QUE TE FALTABA)
+  useEffect(() => {
+    if (isFocused) {
+      currentIndex.current = 0;
+
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      });
+    }
+  }, [isFocused]);
+
+  // 🔥 NEXT SLIDE
+  const goNext = () => {
+    const next =
+      currentIndex.current === data.length - 1
+        ? 0
+        : currentIndex.current + 1;
+
+    currentIndex.current = next;
+
+    flatListRef.current?.scrollToOffset({
+      offset: next * width,
+      animated: true,
+    });
+  };
+
+  // 🔥 SINCRONIZACIÓN MANUAL
+  const onMomentumEnd = (e: any) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    currentIndex.current = index;
+  };
+
+  // 🌿 IMAGENES
+  const renderImage = (type: string) => {
+    let img;
+    if (type === "earth")
+      img = require("../../assets/illustrations/earth.png");
+    if (type === "recycle")
+      img = require("../../assets/illustrations/recycle.png");
+    if (type === "bag")
+      img = require("../../assets/illustrations/bag.png");
+
+    return (
+      <Animated.Image
+        source={img}
+        style={{ width: 220, height: 220 }}
+        resizeMode="contain"
+      />
+    );
+  };
+
+  // 🌿 SHAPE
+  const Leaf = ({ style }: any) => (
+    <View style={[styles.leaf, style]}>
+      <Svg width={70} height={70} viewBox="0 0 24 24">
+        <Path
+          fill="#10B981"
+          d="M12 2C8 6 4 10 4 14a8 8 0 0016 0c0-4-4-8-8-12z"
+        />
+      </Svg>
+    </View>
+  );
+
+  // 🧠 RENDER ITEM
+  const renderItem = ({ item }: any) => {
+    return (
+      <View style={styles.page}>
+        <Leaf style={{ top: 60, left: 10, opacity: 0.12 }} />
+        <Leaf style={{ bottom: 80, right: 10, opacity: 0.1 }} />
+
+        <View style={styles.content}>
+          {renderImage(item.type)}
+
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.desc}>{item.desc}</Text>
+
+          {item.roles && (
+            <>
+              <Text style={styles.roleText}>Elige tu rol</Text>
+
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.btnPrimary}
+                  onPress={() => navigation.navigate("CiudadanoHome")}
+                >
+                  <View style={styles.activeDotYellow} />
+                  <Text style={styles.btnPrimaryText}>Ciudadano</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.btnOutline}
+                  onPress={() => navigation.navigate("Login")}
+                >
+                  <View style={styles.activeDot} />
+                  <Text style={styles.btnOutlineText}>Conductor</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
+      {/* SWIPE */}
+      <Animated.FlatList
+        ref={flatListRef}
+        data={data}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        onMomentumScrollEnd={onMomentumEnd}
+      />
 
-      {/* BLOB ARRIBA */}
-      <View style={styles.blobTop}>
-        <Svg width={width} height={140} viewBox={`0 0 ${width} 140`}>
-          <Defs>
-            <LinearGradient id="gradTop" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#FFD93D" />
-              <Stop offset="0.5" stopColor="#A8E063" />
-              <Stop offset="1" stopColor="#10B981" />
-            </LinearGradient>
-          </Defs>
-          <Path
-            d={`M0,0 L${width},0 L${width},90 
-            Q${width * 0.82},140 ${width * 0.6},100 
-            Q${width * 0.35},60 ${width * 0.15},110 
-            Q${width * 0.05},130 0,105 Z`}
-            fill="url(#gradTop)"
-          />
-        </Svg>
+      {/* DOTS */}
+      <View style={styles.dots}>
+        {data.map((_, i) => {
+          const inputRange = [
+            (i - 1) * width,
+            i * width,
+            (i + 1) * width,
+          ];
+
+          const widthAnim = scrollX.interpolate({
+            inputRange,
+            outputRange: [6, 18, 6],
+            extrapolate: "clamp",
+          });
+
+          return (
+            <Animated.View
+              key={i}
+              style={[styles.dot, { width: widthAnim }]}
+            />
+          );
+        })}
       </View>
 
-      {/* BLOB ABAJO */}
-      <View style={styles.blobBottom}>
-        <Svg width={width} height={140} viewBox={`0 0 ${width} 140`}>
-          <Defs>
-            <LinearGradient id="gradBottom" x1="0" y1="1" x2="1" y2="0">
-              <Stop offset="0" stopColor="#FF6B47" />
-              <Stop offset="0.5" stopColor="#FF8E6E" />
-              <Stop offset="1" stopColor="#FFB347" />
-            </LinearGradient>
-          </Defs>
+      {/* BOTÓN CENTRADO */}
+      <TouchableOpacity style={styles.nextBtn} onPress={goNext}>
+        <Svg width={26} height={26} viewBox="0 0 24 24">
           <Path
-            d={`M0,140 L${width},140 L${width},50 
-            Q${width * 0.78},0 ${width * 0.55},55 
-            Q${width * 0.35},100 ${width * 0.18},45 
-            Q${width * 0.08},10 0,50 Z`}
-            fill="url(#gradBottom)"
+            d="M5 12H19M13 6L19 12L13 18"
+            stroke="#fff"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
           />
         </Svg>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View
-          style={[
-            styles.content,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <Text style={styles.bienvenido}>¡Bienvenido a</Text>
-          <Text style={styles.title}>TrashGo</Text>
-
-          <Text style={styles.subtitle}>
-            Gestión inteligente de residuos urbanos
-          </Text>
-
-          {/* BOTON VER RUTAS */}
-          <View style={styles.signInRow}>
-            <Text style={styles.signInLabel}>Ver rutas</Text>
-
-            <TouchableOpacity
-              style={styles.pillBtn}
-              onPress={() => navigation.navigate('CiudadanoHome')}
-              activeOpacity={0.85}
-            >
-              <Svg
-                width={BTN_W}
-                height={BTN_H}
-                viewBox={`0 0 ${BTN_W} ${BTN_H}`}
-                style={StyleSheet.absoluteFill}
-              >
-                <Defs>
-                  <LinearGradient id="pill" x1="0" y1="0.5" x2="1" y2="0.5">
-                    <Stop offset="0" stopColor="#FF8C5A" />
-                    <Stop offset="1" stopColor="#FF5722" />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width={BTN_W} height={BTN_H} rx={BTN_R} fill="url(#pill)" />
-              </Svg>
-
-              <Svg width={28} height={28} viewBox="0 0 28 28">
-                <G stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none">
-                  <Path d="M6 14 L22 14" />
-                  <Path d="M15 7 L22 14 L15 21" />
-                </G>
-              </Svg>
-            </TouchableOpacity>
-          </View>
-
-          {/* LOGIN */}
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.loginText}>Iniciar sesión</Text>
-          </TouchableOpacity>
-
-          {/* ROLES */}
-          <View style={styles.rolesRow}>
-
-            {/* Conductor */}
-            <View style={styles.rolItem}>
-              <View style={styles.rolIconCircle}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <G stroke="#FF5722" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M1 3h15v13H1z" />
-                    <Path d="M16 8h4l3 3v5h-7V8z" />
-                    <Path d="M5.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
-                    <Path d="M18.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
-                  </G>
-                </Svg>
-              </View>
-              <Text style={styles.rolLabel}>Conductor</Text>
-            </View>
-
-            {/* Administrador */}
-            <View style={styles.rolItem}>
-              <View style={styles.rolIconCircle}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <G stroke="#10B981" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                    <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </G>
-                </Svg>
-              </View>
-              <Text style={styles.rolLabel}>Administrador</Text>
-            </View>
-
-            {/* Ciudadano */}
-            <View style={styles.rolItem}>
-              <View style={styles.rolIconCircle}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <G stroke="#FFD93D" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <Path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                  </G>
-                </Svg>
-              </View>
-              <Text style={styles.rolLabel}>Ciudadano</Text>
-            </View>
-
-          </View>
-
-        </Animated.View>
-      </ScrollView>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  page: {
+    width,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  blobTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  blobBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
+
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 36,
-    paddingTop: 150,
-    paddingBottom: 150,
+    alignItems: "center",
+    paddingHorizontal: 30,
   },
-  bienvenido: {
-    fontSize: 15,
-    fontFamily: 'Nunito_400Regular',
-    color: '#9CA3AF',
-    marginBottom: 2,
-  },
+
   title: {
-    fontSize: 52,
-    fontFamily: 'Nunito_700Bold',
-    color: '#1F2937',
-    marginBottom: 6,
-    letterSpacing: -1.5,
+    marginTop: 15,
+    fontSize: 22,
+    color: "#111",
+    textAlign: "center",
   },
-  subtitle: {
-    fontSize: 15,
-    fontFamily: 'Nunito_400Regular',
-    color: '#9CA3AF',
-    marginBottom: 40,
+
+  desc: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
   },
-  signInRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 32,
+
+  roleText: {
+    marginTop: 18,
+    fontSize: 14,
+    color: "#444",
   },
-  signInLabel: {
-    fontSize: 28,
-    fontFamily: 'Nunito_700Bold',
-    color: '#1F2937',
+
+  actions: {
+    marginTop: 15,
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
   },
-  pillBtn: {
-    width: BTN_W,
-    height: BTN_H,
-    borderRadius: BTN_R,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+
+  btnPrimary: {
+    flex: 1,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
   },
-  loginButton: {
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 16,
+
+  btnPrimaryText: {
+    color: "#fff",
+    fontSize: 13,
   },
-  loginText: {
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    color: '#1F2937',
-    textDecorationLine: 'underline',
+
+  btnOutline: {
+    flex: 1,
+    height: 42,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#FAFAFA",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
   },
-  rolesRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
+
+  btnOutlineText: {
+    color: "#374151",
+    fontSize: 13,
   },
-  rolItem: {
-    alignItems: 'center',
+
+  activeDotYellow: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FACC15",
   },
-  rolIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F9F9F9',
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
+
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#22C55E",
   },
-  rolLabel: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontFamily: 'Nunito_400Regular',
+
+  dots: {
+    position: "absolute",
+    bottom: 40,
+    flexDirection: "row",
+    alignSelf: "center",
+  },
+
+  dot: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10B981",
+    marginHorizontal: 4,
+  },
+
+  nextBtn: {
+    position: "absolute",
+    bottom: 90,
+    alignSelf: "center",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+  },
+
+  leaf: {
+    position: "absolute",
   },
 });
