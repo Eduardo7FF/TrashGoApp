@@ -1,368 +1,346 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Alert,
-} from 'react-native';
-import { COLORS } from '../../constants/theme';
-import { supabase } from '../../config/supabase';
-import { useNavigation } from '@react-navigation/native';
-import Svg, { Path, G, Circle } from 'react-native-svg';
+  FlatList,
+  Animated,
+  PanResponder,
+} from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import * as Location from "expo-location";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
 
-export default function ConductorHomeScreen({ route }: any) {
-  const { nombre } = route.params;
-  const navigation = useNavigation<any>();
-  const [rutaIniciada, setRutaIniciada] = useState(false);
-  const [rutaFinalizada, setRutaFinalizada] = useState(false);
+const PERFIL_ID = "61607683-6e7b-4cde-b07a-96e16eadd7cf";
 
-  // Puntos de recolección mock
-  const puntos = [
-    { id: 1, direccion: 'Calle 45 #12-30', estado: 'completado' },
-    { id: 2, direccion: 'Carrera 7 #23-15', estado: 'completado' },
-    { id: 3, direccion: 'Av. Principal #89-10', estado: 'pendiente' },
-    { id: 4, direccion: 'Calle 12 #34-56', estado: 'pendiente' },
-    { id: 5, direccion: 'Carrera 15 #67-89', estado: 'pendiente' },
-  ];
+export default function ConductorHomeScreen() {
+  const mapRef = useRef<MapView>(null);
 
-  const handleIniciarRuta = () => {
-    Alert.alert('Iniciar ruta', '¿Estás listo para iniciar la ruta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Iniciar',
-        onPress: () => setRutaIniciada(true),
-      },
-    ]);
-  };
+  const [vehiculos, setVehiculos] = useState<any[]>([]);
+  const [vehiculo, setVehiculo] = useState<any>(null);
+  const [ubicacion, setUbicacion] = useState<any>(null);
+  const [open, setOpen] = useState(true);
 
-  const handleFinalizarRuta = () => {
-    Alert.alert('Finalizar ruta', '¿Deseas finalizar la ruta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Finalizar',
-        onPress: () => {
-          setRutaFinalizada(true);
-          setRutaIniciada(false);
+  const PANEL_HEIGHT = 420;
+  const HANDLE_HEIGHT = 40;
+
+  const OPEN = 0;
+  const CLOSED = PANEL_HEIGHT - HANDLE_HEIGHT;
+
+  const translateY = useRef(new Animated.Value(CLOSED)).current;
+  const lastY = useRef(0);
+
+  // UBICACIÓN
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") return;
+
+      const loc = await Location.getCurrentPositionAsync({});
+      setUbicacion(loc.coords);
+
+      mapRef.current?.animateToRegion({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      });
+
+      Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 3,
         },
-      },
-    ]);
+        (loc) => {
+          setUbicacion(loc.coords);
+        }
+      );
+    })();
+  }, []);
+
+  // VEHICULOS
+  useEffect(() => {
+    cargarVehiculos();
+  }, []);
+
+  const cargarVehiculos = async () => {
+    try {
+      const res = await fetch(
+        `https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos?perfil_id=${PERFIL_ID}`
+      );
+      const json = await res.json();
+      setVehiculos(json.data || []);
+    } catch {
+      console.log("Error cargando vehículos");
+    }
   };
 
-  const cerrarSesion = async () => {
-    Alert.alert('Cerrar sesión', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sí, salir',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-        },
-      },
-    ]);
+  const centrar = () => {
+    if (!ubicacion) return;
+
+    mapRef.current?.animateToRegion({
+      latitude: ubicacion.latitude,
+      longitude: ubicacion.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
   };
+
+  const toggleVehiculo = (item: any) => {
+    if (vehiculo?.id === item.id) setVehiculo(null);
+    else setVehiculo(item);
+  };
+
+  // ABRIR PANEL AL INICIO
+  useEffect(() => {
+    Animated.spring(translateY, {
+      toValue: OPEN,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // GESTO + PARALLAX
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: () => {
+        translateY.stopAnimation((value: number) => {
+          lastY.current = value;
+        });
+      },
+
+      onPanResponderMove: (_, gesture) => {
+        let newY = lastY.current + gesture.dy;
+
+        if (newY < OPEN) newY = OPEN;
+        if (newY > CLOSED) newY = CLOSED;
+
+        translateY.setValue(newY);
+
+        // PARALLAX
+        if (ubicacion) {
+          const factor = newY / CLOSED;
+
+          mapRef.current?.animateCamera(
+            {
+              center: {
+                latitude: ubicacion.latitude + factor * 0.002,
+                longitude: ubicacion.longitude,
+              },
+              zoom: 16 - factor * 1.5,
+            },
+            { duration: 0 }
+          );
+        }
+      },
+
+      onPanResponderRelease: (_, gesture) => {
+        let final = OPEN;
+
+        if (gesture.vy > 0.5 || gesture.dy > 60) {
+          final = CLOSED;
+        } else if (gesture.vy < -0.5 || gesture.dy < -60) {
+          final = OPEN;
+        } else {
+          final = lastY.current > CLOSED / 2 ? CLOSED : OPEN;
+        }
+
+        setOpen(final === OPEN);
+
+        Animated.spring(translateY, {
+          toValue: final,
+          useNativeDriver: true,
+          tension: 90,
+          friction: 12,
+        }).start();
+      },
+    })
+  ).current;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <MapView ref={mapRef} style={styles.map}>
+        {ubicacion && <Marker coordinate={ubicacion} />}
+      </MapView>
 
-      {/* SALUDO */}
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {nombre?.charAt(0).toUpperCase() ?? '?'}
-          </Text>
-        </View>
-        <Text style={styles.saludo}>Hola,</Text>
-        <Text style={styles.nombre}>{nombre}</Text>
-        <Text style={styles.rol}>Conductor</Text>
-      </View>
-
-      {/* ESTADO DE RUTA */}
-      <View style={styles.estadoCard}>
-        <View style={styles.estadoFila}>
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-            <G stroke={COLORS.primary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M1 3h15v13H1z" />
-              <Path d="M16 8h4l3 3v5h-7V8z" />
-              <Path d="M5.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
-              <Path d="M18.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
-            </G>
-          </Svg>
-          <View style={styles.estadoTexto}>
-            <Text style={styles.estadoTitulo}>Ruta del día</Text>
-            <Text style={styles.estadoSubtitulo}>
-              {rutaFinalizada
-                ? 'Ruta finalizada ✓'
-                : rutaIniciada
-                ? 'En progreso...'
-                : 'Sin iniciar'}
-            </Text>
-          </View>
-          <View style={[
-            styles.estadoBadge,
-            rutaFinalizada
-              ? styles.badgeVerde
-              : rutaIniciada
-              ? styles.badgeAmarillo
-              : styles.badgeGris
-          ]}>
-            <Text style={styles.estadoBadgeTexto}>
-              {rutaFinalizada ? 'Finalizada' : rutaIniciada ? 'Activa' : 'Pendiente'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* MAPA PLACEHOLDER */}
-      <Text style={styles.seccionTitulo}>Mapa de ruta</Text>
-      <View style={styles.mapaPlaceholder}>
-        <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-          <G stroke="#9CA3AF" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-            <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-            <Circle cx="12" cy="9" r="2.5" />
-          </G>
-        </Svg>
-        <Text style={styles.mapaTexto}>Mapa en construcción</Text>
-        <Text style={styles.mapaSubtexto}>GPS disponible próximamente</Text>
-      </View>
-
-      {/* PUNTOS DE RECOLECCION */}
-      <Text style={styles.seccionTitulo}>Puntos de recolección</Text>
-      <View style={styles.puntosContainer}>
-        {puntos.map((punto) => (
-          <View key={punto.id} style={styles.puntoFila}>
-            <View style={[
-              styles.puntoDot,
-              punto.estado === 'completado' ? styles.dotVerde : styles.dotGris
-            ]} />
-            <Text style={styles.puntoDireccion}>{punto.direccion}</Text>
-            <Text style={[
-              styles.puntoEstado,
-              punto.estado === 'completado' ? styles.textoVerde : styles.textoGris
-            ]}>
-              {punto.estado === 'completado' ? '✓' : '•••'}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* BOTONES */}
-      <View style={styles.botonesRow}>
-        {!rutaIniciada && !rutaFinalizada && (
-          <TouchableOpacity style={styles.botonIniciar} onPress={handleIniciarRuta}>
-            <Text style={styles.botonTexto}>Iniciar ruta</Text>
-          </TouchableOpacity>
-        )}
-        {rutaIniciada && !rutaFinalizada && (
-          <TouchableOpacity style={styles.botonFinalizar} onPress={handleFinalizarRuta}>
-            <Text style={styles.botonTexto}>Finalizar ruta</Text>
-          </TouchableOpacity>
-        )}
-        {rutaFinalizada && (
-          <View style={styles.botonCompletado}>
-            <Text style={styles.botonTexto}>Ruta completada ✓</Text>
-          </View>
-        )}
-      </View>
-
-      {/* CERRAR SESION */}
-      <TouchableOpacity style={styles.botonSalir} onPress={cerrarSesion}>
-        <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
+      <TouchableOpacity style={styles.centerBtn} onPress={centrar}>
+        <MaterialIcons name="my-location" size={22} color="#10B981" />
       </TouchableOpacity>
 
-    </ScrollView>
+      <Animated.View
+        style={[styles.panel, { transform: [{ translateY }] }]}
+      >
+        <View {...panResponder.panHandlers}>
+          <View style={styles.handle} />
+        </View>
+
+        {open && (
+          <>
+            <Text style={styles.title}>Panel del conductor</Text>
+
+            <Text style={styles.label}>Vehículo seleccionado</Text>
+            <Text style={styles.value}>
+              {vehiculo ? vehiculo.placa : "Ninguno"}
+            </Text>
+
+            <FlatList
+              data={vehiculos}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const selected = vehiculo?.id === item.id;
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.card,
+                      selected && styles.cardActive,
+                    ]}
+                    onPress={() => toggleVehiculo(item)}
+                  >
+                    <View>
+                      <Text style={styles.cardTitle}>
+                        {item.placa}
+                      </Text>
+                      <Text style={styles.cardSub}>
+                        {item.marca} - {item.modelo}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor: item.activo
+                            ? "#10B981"
+                            : "#EF4444",
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            {/* BOTÓN SOLO SI HAY VEHÍCULO */}
+            {vehiculo && (
+              <TouchableOpacity style={styles.startBtn}>
+                <Text style={styles.startText}>
+                  Iniciar recorrido
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </Animated.View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  map: { flex: 1 },
+
+  centerBtn: {
+    position: "absolute",
+    right: 20,
+    bottom: 120,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 6,
+  },
+
+  panel: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    height: 420,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 20,
+    elevation: 12,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 20,
+
+  handle: {
+    width: 60,
+    height: 6,
+    borderRadius: 6,
+    backgroundColor: "#D1D5DB",
+    alignSelf: "center",
+    marginBottom: 15,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
   },
-  avatarText: {
-    fontSize: 36,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  saludo: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  nombre: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  rol: {
+
+  label: {
     fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  estadoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    elevation: 2,
-  },
-  estadoFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  estadoTexto: {
-    flex: 1,
-  },
-  estadoTitulo: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  estadoSubtitulo: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  estadoBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeVerde: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgeAmarillo: {
-    backgroundColor: '#FEF3C7',
-  },
-  badgeGris: {
-    backgroundColor: '#F3F4F6',
-  },
-  estadoBadgeTexto: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  seccionTitulo: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  mapaPlaceholder: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    height: 160,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    elevation: 2,
-  },
-  mapaTexto: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: "#6B7280",
     marginTop: 10,
   },
-  mapaSubtexto: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+
+  value: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 10,
   },
-  puntosContainer: {
-    backgroundColor: COLORS.surface,
+
+  card: {
+    backgroundColor: "#F9FAFB",
+    padding: 15,
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    elevation: 2,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  puntoFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E7EB',
+
+  cardActive: {
+    borderWidth: 2,
+    borderColor: "#10B981",
+    backgroundColor: "#ECFDF5",
   },
-  puntoDot: {
+
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  cardSub: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  statusDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginRight: 12,
   },
-  dotVerde: {
-    backgroundColor: '#10B981',
+
+  startBtn: {
+    backgroundColor: "#10B981",
+    padding: 15,
+    borderRadius: 18,
+    alignItems: "center",
+    marginTop: 10,
   },
-  dotGris: {
-    backgroundColor: '#D1D5DB',
-  },
-  puntoDireccion: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  puntoEstado: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  textoVerde: {
-    color: '#10B981',
-  },
-  textoGris: {
-    color: '#9CA3AF',
-  },
-  botonesRow: {
-    marginBottom: 16,
-  },
-  botonIniciar: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  botonFinalizar: {
-    backgroundColor: '#F59E0B',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  botonCompletado: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  botonTexto: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  botonSalir: {
-    backgroundColor: '#FF4D4D',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  botonSalirTexto: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+
+  startText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 });

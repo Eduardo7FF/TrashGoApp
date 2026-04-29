@@ -41,18 +41,17 @@ export default function WelcomeScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<any>(null);
   const currentIndex = useRef(0);
-  const intervalRef = useRef<any>(null);
 
-  // 🔥 AUTO SWIPE LOOP
+  // 🔥 AUTO SWIPE
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
+    const interval = setInterval(() => {
       goNext();
-    }, 6000);
+    }, 5000);
 
-    return () => clearInterval(intervalRef.current);
+    return () => clearInterval(interval);
   }, []);
 
-  // 🔥 RESET REAL (ESTO ES EL FIX QUE TE FALTABA)
+  // 🔥 RESET AL VOLVER
   useEffect(() => {
     if (isFocused) {
       currentIndex.current = 0;
@@ -66,7 +65,6 @@ export default function WelcomeScreen() {
     }
   }, [isFocused]);
 
-  // 🔥 NEXT SLIDE
   const goNext = () => {
     const next =
       currentIndex.current === data.length - 1
@@ -81,7 +79,6 @@ export default function WelcomeScreen() {
     });
   };
 
-  // 🔥 SINCRONIZACIÓN MANUAL
   const onMomentumEnd = (e: any) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / width);
     currentIndex.current = index;
@@ -106,7 +103,6 @@ export default function WelcomeScreen() {
     );
   };
 
-  // 🌿 SHAPE
   const Leaf = ({ style }: any) => (
     <View style={[styles.leaf, style]}>
       <Svg width={70} height={70} viewBox="0 0 24 24">
@@ -118,7 +114,6 @@ export default function WelcomeScreen() {
     </View>
   );
 
-  // 🧠 RENDER ITEM
   const renderItem = ({ item }: any) => {
     return (
       <View style={styles.page}>
@@ -161,7 +156,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* SWIPE */}
+      {/* SWIPE CON ANIMACION REAL */}
       <Animated.FlatList
         ref={flatListRef}
         data={data}
@@ -171,9 +166,14 @@ export default function WelcomeScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         onMomentumScrollEnd={onMomentumEnd}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       />
 
-      {/* DOTS */}
+      {/* DOTS ANIMADOS */}
       <View style={styles.dots}>
         {data.map((_, i) => {
           const inputRange = [
@@ -188,16 +188,25 @@ export default function WelcomeScreen() {
             extrapolate: "clamp",
           });
 
+          const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.3, 1, 0.3],
+            extrapolate: "clamp",
+          });
+
           return (
             <Animated.View
               key={i}
-              style={[styles.dot, { width: widthAnim }]}
+              style={[
+                styles.dot,
+                { width: widthAnim, opacity },
+              ]}
             />
           );
         })}
       </View>
 
-      {/* BOTÓN CENTRADO */}
+      {/* BOTON NEXT */}
       <TouchableOpacity style={styles.nextBtn} onPress={goNext}>
         <Svg width={26} height={26} viewBox="0 0 24 24">
           <Path

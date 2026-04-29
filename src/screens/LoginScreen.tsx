@@ -72,7 +72,7 @@ export default function LoginScreen() {
 
       if (error) throw error;
 
-      navigation.replace("ConductorHome");
+      navigation.replace("DriverTabs");
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
