@@ -12,66 +12,84 @@ import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import Svg, { Path, Circle } from "react-native-svg";
+import { useDriver } from "../../navigation/DriverContext";
 
 const PERFIL_ID = "61607683-6e7b-4cde-b07a-96e16eadd7cf";
+const API = "https://apirecoleccion.gonzaloandreslucio.com/api";
+
+function TruckIcon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        fill={color}
+        d="M3 8c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v6h1.2c.3-1.2 1.4-2 2.8-2 1.4 0 2.5.8 2.8 2H21v-2.1c0-.5-.2-1-.5-1.3l-2-2.4c-.4-.5-.9-.7-1.5-.7H15V8H3z"
+      />
+      <Circle cx="7" cy="17" r="2" fill={color} />
+      <Circle cx="18" cy="17" r="2" fill={color} />
+    </Svg>
+  );
+}
 
 export default function ConductorHomeScreen() {
+  const navigation = useNavigation<any>();
   const mapRef = useRef<MapView>(null);
 
+  const { vehiculo, setVehiculo } = useDriver();
+
   const [vehiculos, setVehiculos] = useState<any[]>([]);
-  const [vehiculo, setVehiculo] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [open, setOpen] = useState(true);
 
   const PANEL_HEIGHT = 420;
   const HANDLE_HEIGHT = 40;
-
   const OPEN = 0;
   const CLOSED = PANEL_HEIGHT - HANDLE_HEIGHT;
 
   const translateY = useRef(new Animated.Value(CLOSED)).current;
   const lastY = useRef(0);
 
-  // UBICACIÓN
+  const animatedValues = useRef<{ [key: string]: Animated.Value }>({}).current;
+
+  const getAnim = (id: string) => {
+    if (!animatedValues[id]) {
+      animatedValues[id] = new Animated.Value(1);
+    }
+    return animatedValues[id];
+  };
+
+  const colors = ["#10B981", "#3B82F6", "#F97316", "#8B5CF6"];
+  const bgColors = ["#ECFDF5", "#EFF6FF", "#FFF7ED", "#F5F3FF"];
+
   useEffect(() => {
-    (async () => {
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") return;
-
-      const loc = await Location.getCurrentPositionAsync({});
-      setUbicacion(loc.coords);
-
-      mapRef.current?.animateToRegion({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      });
-
-      Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 3,
-        },
-        (loc) => {
-          setUbicacion(loc.coords);
-        }
-      );
-    })();
-  }, []);
-
-  // VEHICULOS
-  useEffect(() => {
+    obtenerUbicacion();
     cargarVehiculos();
+
+    Animated.spring(translateY, {
+      toValue: OPEN,
+      useNativeDriver: true,
+    }).start();
   }, []);
+
+  const obtenerUbicacion = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return;
+
+    const loc = await Location.getCurrentPositionAsync({});
+    setUbicacion(loc.coords);
+
+    mapRef.current?.animateToRegion({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    });
+  };
 
   const cargarVehiculos = async () => {
     try {
-      const res = await fetch(
-        `https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos?perfil_id=${PERFIL_ID}`
-      );
+      const res = await fetch(`${API}/vehiculos?perfil_id=${PERFIL_ID}`);
       const json = await res.json();
       setVehiculos(json.data || []);
     } catch {
@@ -90,20 +108,6 @@ export default function ConductorHomeScreen() {
     });
   };
 
-  const toggleVehiculo = (item: any) => {
-    if (vehiculo?.id === item.id) setVehiculo(null);
-    else setVehiculo(item);
-  };
-
-  // ABRIR PANEL AL INICIO
-  useEffect(() => {
-    Animated.spring(translateY, {
-      toValue: OPEN,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  // GESTO + PARALLAX
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -122,42 +126,16 @@ export default function ConductorHomeScreen() {
         if (newY > CLOSED) newY = CLOSED;
 
         translateY.setValue(newY);
-
-        // PARALLAX
-        if (ubicacion) {
-          const factor = newY / CLOSED;
-
-          mapRef.current?.animateCamera(
-            {
-              center: {
-                latitude: ubicacion.latitude + factor * 0.002,
-                longitude: ubicacion.longitude,
-              },
-              zoom: 16 - factor * 1.5,
-            },
-            { duration: 0 }
-          );
-        }
       },
 
       onPanResponderRelease: (_, gesture) => {
-        let final = OPEN;
-
-        if (gesture.vy > 0.5 || gesture.dy > 60) {
-          final = CLOSED;
-        } else if (gesture.vy < -0.5 || gesture.dy < -60) {
-          final = OPEN;
-        } else {
-          final = lastY.current > CLOSED / 2 ? CLOSED : OPEN;
-        }
+        const final = gesture.dy > 50 ? CLOSED : OPEN;
 
         setOpen(final === OPEN);
 
         Animated.spring(translateY, {
           toValue: final,
           useNativeDriver: true,
-          tension: 90,
-          friction: 12,
         }).start();
       },
     })
@@ -170,70 +148,82 @@ export default function ConductorHomeScreen() {
       </MapView>
 
       <TouchableOpacity style={styles.centerBtn} onPress={centrar}>
-        <MaterialIcons name="my-location" size={22} color="#10B981" />
+        <MaterialIcons name="my-location" size={20} color="#10B981" />
       </TouchableOpacity>
 
-      <Animated.View
-        style={[styles.panel, { transform: [{ translateY }] }]}
-      >
+      <Animated.View style={[styles.panel, { transform: [{ translateY }] }]}>
         <View {...panResponder.panHandlers}>
           <View style={styles.handle} />
         </View>
 
         {open && (
           <>
-            <Text style={styles.title}>Panel del conductor</Text>
-
-            <Text style={styles.label}>Vehículo seleccionado</Text>
-            <Text style={styles.value}>
-              {vehiculo ? vehiculo.placa : "Ninguno"}
-            </Text>
+            <Text style={styles.title}>Selecciona vehículo</Text>
 
             <FlatList
               data={vehiculos}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const selected = vehiculo?.id === item.id;
+                const anim = getAnim(item.id);
 
                 return (
-                  <TouchableOpacity
-                    style={[
-                      styles.card,
-                      selected && styles.cardActive,
-                    ]}
-                    onPress={() => toggleVehiculo(item)}
-                  >
-                    <View>
-                      <Text style={styles.cardTitle}>
-                        {item.placa}
-                      </Text>
-                      <Text style={styles.cardSub}>
-                        {item.marca} - {item.modelo}
-                      </Text>
-                    </View>
+                  <Animated.View style={{ transform: [{ scale: anim }] }}>
+                    <TouchableOpacity
+                      style={[styles.card, selected && styles.cardActive]}
+                      onPress={() => {
+                        Animated.sequence([
+                          Animated.timing(anim, {
+                            toValue: 0.96,
+                            duration: 80,
+                            useNativeDriver: true,
+                          }),
+                          Animated.spring(anim, {
+                            toValue: 1,
+                            friction: 5,
+                            useNativeDriver: true,
+                          }),
+                        ]).start();
 
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor: item.activo
-                            ? "#10B981"
-                            : "#EF4444",
-                        },
-                      ]}
-                    />
-                  </TouchableOpacity>
+                        if (selected) {
+                          setVehiculo(null); // 🔥 DESELECCIONAR
+                        } else {
+                          setVehiculo(item);
+                        }
+                      }}
+                    >
+                      <View style={styles.left}>
+                        <View
+                          style={[
+                            styles.iconWrap,
+                            { backgroundColor: bgColors[index % 4] },
+                          ]}
+                        >
+                          <TruckIcon color={colors[index % 4]} />
+                        </View>
+
+                        <View>
+                          <Text style={styles.cardTitle}>{item.placa}</Text>
+                          <Text style={styles.cardSub}>
+                            {item.marca} - {item.modelo}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {selected && <View style={styles.dot} />}
+                    </TouchableOpacity>
+                  </Animated.View>
                 );
               }}
             />
 
-            {/* BOTÓN SOLO SI HAY VEHÍCULO */}
             {vehiculo && (
-              <TouchableOpacity style={styles.startBtn}>
-                <Text style={styles.startText}>
-                  Iniciar recorrido
-                </Text>
+              <TouchableOpacity
+                style={styles.startBtn}
+                onPress={() => navigation.navigate("Recorrido")}
+              >
+                <Text style={styles.startText}>Continuar a recorrido</Text>
               </TouchableOpacity>
             )}
           </>
@@ -244,21 +234,20 @@ export default function ConductorHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1 },
 
   map: { flex: 1 },
 
   centerBtn: {
     position: "absolute",
-    right: 20,
+    right: 18,
     bottom: 120,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#fff",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
   },
 
   panel: {
@@ -266,81 +255,92 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
     height: 420,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
-    elevation: 12,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 14,
   },
 
   handle: {
-    width: 60,
-    height: 6,
-    borderRadius: 6,
+    width: 46,
+    height: 4,
+    borderRadius: 4,
     backgroundColor: "#D1D5DB",
     alignSelf: "center",
-    marginBottom: 15,
+    marginBottom: 10,
   },
 
   title: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  label: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: 10,
-  },
-
-  value: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
+    color: "#111827",
     marginBottom: 10,
   },
 
   card: {
     backgroundColor: "#F9FAFB",
-    padding: 15,
-    borderRadius: 14,
-    marginBottom: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+
+    borderWidth: 1,
+    borderColor: "#F3F4F6", // 🔥 leve separación visual
   },
 
   cardActive: {
-    borderWidth: 2,
-    borderColor: "#10B981",
-    backgroundColor: "#ECFDF5",
+    backgroundColor: "#F0FDF4",
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+
+  left: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
 
   cardTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
+    color: "#111827",
   },
 
   cardSub: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 2,
   },
 
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#10B981",
   },
 
   startBtn: {
-    backgroundColor: "#10B981",
-    padding: 15,
-    borderRadius: 18,
+    backgroundColor: "#111827",
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 12,
   },
 
   startText: {
-    color: "#fff",
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });

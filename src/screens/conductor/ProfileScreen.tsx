@@ -9,20 +9,74 @@ import {
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
+import Svg, { Path, Circle } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../config/supabase";
+import { useDriver } from "../../navigation/DriverContext";
+
+/* ---------- ICONOS ---------- */
+
+function TruckIcon({
+  color,
+  size = 16,
+}: {
+  color: string;
+  size?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        fill={color}
+        d="M3 8c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v6h1.2c.3-1.2 1.4-2 2.8-2 1.4 0 2.5.8 2.8 2H21v-2.1c0-.5-.2-1-.5-1.3l-2-2.4c-.4-.5-.9-.7-1.5-.7H15V8H3z"
+      />
+      <Circle cx="7" cy="17" r="2" fill={color} />
+      <Circle cx="18" cy="17" r="2" fill={color} />
+    </Svg>
+  );
+}
+
+function RouteIcon({
+  color,
+  size = 16,
+}: {
+  color: string;
+  size?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="6" cy="18" r="2" fill={color} />
+      <Circle cx="18" cy="6" r="2" fill={color} />
+      <Path
+        d="M8 18C14 18 10 6 16 6"
+        stroke={color}
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/* ---------- SCREEN ---------- */
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
 
+  const {
+    vehiculo,
+    ruta,
+    recorridoActivo,
+    horaInicio,
+  } = useDriver();
+
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
-  const [onlineTime, setOnlineTime] = useState("00h 00m 00s");
   const [closing, setClosing] = useState(false);
+  const [onlineTime, setOnlineTime] = useState("00h 00m 00s");
 
   const loginTime = useRef(new Date()).current;
-  const btnScale = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     cargarUsuario();
@@ -46,19 +100,16 @@ export default function ProfileScreen() {
 
   const actualizarTiempo = () => {
     const now = new Date();
+
     const diff = Math.floor(
       (now.getTime() - loginTime.getTime()) / 1000
     );
 
-    const h = Math.floor(diff / 3600);
-    const m = Math.floor((diff % 3600) / 60);
-    const s = diff % 60;
+    const h = String(Math.floor(diff / 3600)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+    const s = String(diff % 60).padStart(2, "0");
 
-    const hh = String(h).padStart(2, "0");
-    const mm = String(m).padStart(2, "0");
-    const ss = String(s).padStart(2, "0");
-
-    setOnlineTime(`${hh}h ${mm}m ${ss}s`);
+    setOnlineTime(`${h}h ${m}m ${s}s`);
   };
 
   const cerrarSesion = async () => {
@@ -67,12 +118,12 @@ export default function ProfileScreen() {
     setClosing(true);
 
     Animated.sequence([
-      Animated.timing(btnScale, {
-        toValue: 0.94,
-        duration: 120,
+      Animated.timing(scale, {
+        toValue: 0.95,
+        duration: 100,
         useNativeDriver: true,
       }),
-      Animated.spring(btnScale, {
+      Animated.spring(scale, {
         toValue: 1,
         useNativeDriver: true,
       }),
@@ -86,15 +137,13 @@ export default function ProfileScreen() {
     });
   };
 
-  const initials = () => {
-    if (!userData?.email) return "U";
-    return userData.email.substring(0, 2).toUpperCase();
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.loader}>
-        <ActivityIndicator size="large" color="#10B981" />
+        <ActivityIndicator
+          size="large"
+          color="#111827"
+        />
       </SafeAreaView>
     );
   }
@@ -106,109 +155,132 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.content}
       >
         {/* HEADER */}
+
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {initials()}
+              {userData?.email
+                ?.substring(0, 2)
+                .toUpperCase()}
             </Text>
           </View>
 
-          <Text style={styles.name}>
-            {userData?.email?.split("@")[0]}
-          </Text>
-
-          <Text style={styles.email}>
-            {userData?.email}
-          </Text>
-
-          <View style={styles.badge}>
-            <View style={styles.dot} />
-            <Text style={styles.badgeText}>
-              {onlineTime}
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.name}>
+              Conductor
             </Text>
-          </View>
-        </View>
 
-        {/* CUENTA */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cuenta</Text>
+            <Text style={styles.email}>
+              {userData?.email}
+            </Text>
 
-          <Row
-            icon="mail"
-            text={userData?.email}
-          />
-
-          <Row
-            icon="shield"
-            text="Conductor"
-          />
-
-          <Row
-            icon="hash"
-            text={userData?.id?.slice(0, 12)}
-          />
-        </View>
-
-        {/* ACTIVIDAD */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Actividad
-          </Text>
-
-          <View style={styles.stats}>
-            <Stat
-              value="0"
-              label="Recorridos"
-            />
-
-            <Stat
-              value={onlineTime.split(" ")[1]}
-              label="Online"
-            />
-          </View>
-        </View>
-
-        {/* VEHICULO */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Vehículo
-          </Text>
-
-          <View style={styles.row}>
-            <View style={styles.iconCircle}>
-              <MaterialIcons
-                name="local-shipping"
-                size={16}
-                color="#10B981"
-              />
+            <View style={styles.badge}>
+              <View style={styles.dot} />
+              <Text style={styles.badgeText}>
+                {onlineTime}
+              </Text>
             </View>
-
-            <Text style={styles.rowText}>
-              No seleccionado
-            </Text>
           </View>
+        </View>
+
+        {/* CARDS INDIVIDUALES */}
+
+        <Row
+          icon="mail"
+          label="Correo"
+          value={userData?.email}
+        />
+
+        <Row
+          icon="shield"
+          label="Rol"
+          value="Conductor"
+        />
+
+        <Row
+          customIcon={
+            <TruckIcon color="#F97316" />
+          }
+          label="Vehículo"
+          value={
+            vehiculo?.placa ||
+            "No seleccionado"
+          }
+        />
+
+        <Row
+          customIcon={
+            <RouteIcon color="#3B82F6" />
+          }
+          label="Ruta"
+          value={
+            ruta?.nombre_ruta ||
+            "No seleccionada"
+          }
+        />
+
+        <Row
+          icon="activity"
+          label="Estado"
+          value={
+            recorridoActivo
+              ? "En recorrido"
+              : "Inactivo"
+          }
+        />
+
+        <Row
+          icon="clock"
+          label="Inicio"
+          value={horaInicio || "--:--:--"}
+        />
+
+        {/* RESUMEN */}
+
+        <View style={styles.statsRow}>
+          <Box
+            title="Estado"
+            value={
+              recorridoActivo
+                ? "Activo"
+                : "Libre"
+            }
+          />
+
+          <Box
+            title="Vehículo"
+            value={
+              vehiculo
+                ? "Asignado"
+                : "Ninguno"
+            }
+          />
         </View>
 
         {/* LOGOUT */}
+
         <Animated.View
           style={{
-            transform: [{ scale: btnScale }],
+            transform: [{ scale }],
           }}
         >
           <TouchableOpacity
             style={styles.logoutBtn}
-            activeOpacity={0.9}
             onPress={cerrarSesion}
           >
             {closing ? (
-              <ActivityIndicator color="#EF4444" />
+              <ActivityIndicator
+                size="small"
+                color="#FFF"
+              />
             ) : (
               <>
                 <Feather
                   name="log-out"
-                  size={18}
-                  color="#EF4444"
+                  size={14}
+                  color="#FFF"
                 />
+
                 <Text style={styles.logoutText}>
                   Cerrar sesión
                 </Text>
@@ -221,58 +293,83 @@ export default function ProfileScreen() {
   );
 }
 
+/* ---------- COMPONENTE ROW ---------- */
+
 function Row({
   icon,
-  text,
-}: {
-  icon: any;
-  text: string;
-}) {
+  label,
+  value,
+  customIcon,
+}: any) {
+  const colorMap: any = {
+    mail: "#10B981",
+    shield: "#3B82F6",
+    activity: "#10B981",
+    clock: "#8B5CF6",
+  };
+
   return (
-    <View style={styles.row}>
-      <View style={styles.iconCircle}>
-        <Feather
-          name={icon}
-          size={15}
-          color="#10B981"
-        />
+    <View style={styles.card}>
+      <View style={styles.iconWrap}>
+        {customIcon ? (
+          customIcon
+        ) : (
+          <Feather
+            name={icon}
+            size={14}
+            color={
+              colorMap[icon] || "#6B7280"
+            }
+          />
+        )}
       </View>
 
-      <Text style={styles.rowText}>
-        {text}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowLabel}>
+          {label}
+        </Text>
+
+        <Text style={styles.rowValue}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/* ---------- COMPONENTE BOX ---------- */
+
+function Box({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.box}>
+      <Text style={styles.boxTitle}>
+        {title}
+      </Text>
+
+      <Text style={styles.boxValue}>
+        {value}
       </Text>
     </View>
   );
 }
 
-function Stat({
-  value,
-  label,
-}: {
-  value: string;
-  label: string;
-}) {
-  return (
-    <View style={styles.statBox}>
-      <Text style={styles.statValue}>
-        {value}
-      </Text>
-      <Text style={styles.statLabel}>
-        {label}
-      </Text>
-    </View>
-  );
-}
+/* ---------- STYLES ---------- */
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F9FAFB",
   },
 
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 30,
   },
 
   loader: {
@@ -282,142 +379,141 @@ const styles = StyleSheet.create({
   },
 
   header: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 18,
+    backgroundColor: "#FFFFFF",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
 
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "#10B981",
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#111827",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
   },
 
   avatarText: {
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
   },
 
   name: {
-    marginTop: 14,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
     color: "#111827",
-    textTransform: "capitalize",
   },
 
   email: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 2,
   },
 
   badge: {
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 30,
-    backgroundColor: "#ECFDF5",
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 6,
   },
 
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#10B981",
-    marginRight: 8,
+    marginRight: 6,
   },
 
   badgeText: {
-    color: "#065F46",
-    fontWeight: "600",
-    fontSize: 12,
+    fontSize: 11,
+    color: "#6B7280",
+    fontWeight: "500",
   },
 
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    elevation: 2,
-  },
-
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 14,
-  },
-
-  row: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
 
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#F0FDF4",
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
 
-  rowText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: "#374151",
-    flex: 1,
+  rowLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
   },
 
-  stats: {
+  rowValue: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#111827",
+    marginTop: 2,
+  },
+
+  statsRow: {
     flexDirection: "row",
-    gap: 12,
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 18,
   },
 
-  statBox: {
+  box: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 18,
-    padding: 18,
-    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
 
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
+  boxTitle: {
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
+
+  boxValue: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: "600",
     color: "#111827",
   },
 
-  statLabel: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#6B7280",
-  },
-
   logoutBtn: {
-    marginTop: 8,
-    backgroundColor: "#FEE2E2",
-    borderRadius: 20,
-    padding: 16,
+    alignSelf: "flex-start",
+    backgroundColor: "#111827",
+    paddingHorizontal: 16,
+    height: 42,
+    borderRadius: 12,
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 8,
+    marginTop: 4,
   },
 
   logoutText: {
-    color: "#EF4444",
-    fontWeight: "700",
-    fontSize: 14,
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 6,
   },
 });
